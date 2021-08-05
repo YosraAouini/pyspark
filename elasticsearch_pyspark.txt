@@ -1,0 +1,48 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+from pyspark.sql import functions as sf
+
+spark = SparkSession \
+    .builder \
+    .appName("Project ") \
+    .config("spark.executor.memory", "1g") \
+    .getOrCreate()
+	
+
+flights_2007=spark.read.option("header", "true") \
+    .option("delimiter", ",") \
+    .option("inferSchema", "true") \
+    .csv("flights/2007.csv")
+
+flights_2007.show()
+
+
+carriers = spark.read.option("header", "true") \
+    .option("delimiter", ",") \
+    .option("inferSchema", "true") \
+    .csv("carriers.csv")
+	
+carriers.show(2)
+
+
+airports = spark.read.option("header", "true") \
+    .option("delimiter", ",") \
+    .option("inferSchema", "true") \
+    .csv("airports.csv")
+
+
+airports.show(2)
+
+
+flights_airports=flights_2007.join(airports,flights_2007.Origin==airports.iata)
+flights_airports_carriers = flights_airports.join(carriers,flights_airports.UniqueCarrier==carriers.Code)
+
+flights_airports_carriers.show()
+
+	
+	
+df_result = flights_airports_carriers.withColumn('location', sf.concat(sf.col('lat'),sf.lit(','), sf.col('long')))
+
+
+df_result.write.format("org.elasticsearch.spark.sql").option("es.nodes", "localhost").mode("append").save("yosra_flights_carriers/_doc")
+
